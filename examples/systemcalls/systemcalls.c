@@ -16,8 +16,17 @@ bool do_system(const char *cmd)
  *   and return a boolean true if the system() call completed with success
  *   or false() if it returned a failure
 */
+#if 0
+	int returnCode = system(cmd);
 
-    return true;
+	// checking if the command was executed successfully
+    if (returnCode == 0) {
+        return 0;
+    }
+
+    return -1;
+#endif
+	return true;
 }
 
 /**
@@ -58,10 +67,29 @@ bool do_exec(int count, ...)
  *   as second argument to the execv() command.
  *
 */
+#if 0
+	pid_t pid;
+	int status;
 
-    va_end(args);
+	pid = fork();
+	if (-1 == pid) {
+		return -1;
+	}
+	else if (0 == pid) {
+		execv(command[0], &command[1]);
+	}
+	if (-1 == waitpid(pid, &status, 0))
+		return -1;
+	else if (WIFEXITED(status))
+		return (WIFEXITED(status));
 
-    return true;
+	return -1;
+#else
+	va_end(args);
+
+	return true;
+#endif
+
 }
 
 /**
