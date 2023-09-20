@@ -16,17 +16,14 @@ bool do_system(const char *cmd)
  *   and return a boolean true if the system() call completed with success
  *   or false() if it returned a failure
 */
-#if 0
 	int returnCode = system(cmd);
 
 	// checking if the command was executed successfully
     if (returnCode == 0) {
-        return 0;
+        return true;
     }
-
-    return -1;
-#endif
-	return true;
+    else
+        return false;
 }
 
 /**
@@ -49,46 +46,67 @@ bool do_exec(int count, ...)
     va_start(args, count);
     char * command[count+1];
     int i;
+    //printf("Code begins here with count = %d\n", count);
+    
     for(i=0; i<count; i++)
     {
         command[i] = va_arg(args, char *);
+        //printf("%s \n", command[i]);
     }
     command[count] = NULL;
-    // this line is to avoid a compile warning before your implementation is complete
-    // and may be removed
-    command[count] = command[count];
 
-/*
- * TODO:
- *   Execute a system command by calling fork, execv(),
- *   and wait instead of system (see LSP page 161).
- *   Use the command[0] as the full path to the command to execute
- *   (first argument to execv), and use the remaining arguments
- *   as second argument to the execv() command.
- *
-*/
-#if 0
-	pid_t pid;
+
+    pid_t pid;
 	int status;
+    //int ret;
 
 	pid = fork();
-	if (-1 == pid) {
-		return -1;
-	}
-	else if (0 == pid) {
-		execv(command[0], &command[1]);
-	}
-	if (-1 == waitpid(pid, &status, 0))
-		return -1;
-	else if (WIFEXITED(status))
-		return (WIFEXITED(status));
+	//printf("pid returned: %d\n", pid);
 
-	return -1;
-#else
-	va_end(args);
-
-	return true;
-#endif
+	if (pid == -1) {
+        perror("fork()");
+		return false;
+	}
+	else if (pid == 0) {
+        printf("-----> Executing CHILD execv(%s,%s,%s,%s)\n",
+                command[0],
+                command[1],
+                command[2],
+                command[3]);
+		//execv(command[0], &command[1]);
+		execv(command[0], command);
+        //printf("----->  ERR returned %d\n",ret);
+        perror("execv()");
+        return false;
+    } else {
+    
+        printf("-----> Executing PARENT\n");
+        
+        if (waitpid(pid, &status, WCONTINUED) == -1) {
+            perror("waitpid()");
+            return false;
+        }
+        else if (WIFEXITED(status)) {
+            int exit_status = WEXITSTATUS(status); 
+            
+            printf("WIFEXITED=%d\n",WIFEXITED(status));
+            printf("Exit status of the child was %d\n", exit_status);
+            printf("Test should %s\n",exit_status==0?"PASS":"FAIL");
+            
+            printf("WEXITSTATUS=%d\n",WEXITSTATUS(status));
+            printf("WIFCONTINUED=%d\n",WIFCONTINUED(status));
+            printf("WIFSIGNALED=%d\n",WIFSIGNALED(status));
+            printf("WIFSTOPPED=%d\n",WIFSTOPPED(status));
+            printf("WSTOPSIG=%d\n",WSTOPSIG(status));
+            printf("WTERMSIG=%d\n",WTERMSIG(status));
+            if ( exit_status == 0)
+                return true;
+            else
+                return false;
+        }
+        
+        return false;
+    }
 
 }
 
@@ -108,9 +126,51 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
         command[i] = va_arg(args, char *);
     }
     command[count] = NULL;
-    // this line is to avoid a compile warning before your implementation is complete
-    // and may be removed
-    command[count] = command[count];
+    pid_t pid;
+	int status;
+    //int ret;
+
+	pid = fork();
+	//printf("pid returned: %d\n", pid);
+
+	if (pid == -1) {
+        perror("fork()");
+		return false;
+	}
+	else if (pid == 0) {
+        int fd = open(outputfile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
+    
+        if (fd < 0) { 
+            perror("open"); 
+            return false;
+        }
+        
+        if (dup2(fd, 1) < 0) { 
+            perror("dup2");
+            abort();
+        }
+        
+        close(fd);
+        execv(command[0], command);
+        perror("execv()");
+        return false;
+
+    } else {
+        
+        if (waitpid(pid, &status, WCONTINUED) == -1) {
+            perror("waitpid()");
+            return false;
+        }
+        if ( WIFEXITED(status)) {
+            int exit_status = WEXITSTATUS(status);
+            if(exit_status!= 0)
+                return false;
+                
+            return true;
+        }
+    
+        return false;
+    }
 
 
 /*
